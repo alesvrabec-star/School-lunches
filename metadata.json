@@ -1,0 +1,6 @@
+{
+  "name": "Obědník - Evidence školních obědů",
+  "description": "Jednoduchá evidence školních obědů pro děti, kontrola trvalého příkazu a přehled vyúčtování na konci školního roku.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

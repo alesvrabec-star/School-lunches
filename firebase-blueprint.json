@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "Family": {
+      "title": "Family",
+      "description": "Shared family workspace for lunch tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string", "maxLength": 16 },
+        "name": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "child": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "maxLength": 60 },
+                "schoolName": { "type": "string", "maxLength": 100 },
+                "grade": { "type": "string", "maxLength": 30 },
+                "canteenAccount": { "type": "string", "maxLength": 50 },
+                "symbol": { "type": "string", "maxLength": 30 }
+              }
+            },
+            "pricePerLunch": { "type": "number" },
+            "monthlyPayment": { "type": "number" },
+            "schoolYear": { "type": "string", "maxLength": 20 },
+            "schoolYearStartYear": { "type": "number" },
+            "initialBalance": { "type": "number" },
+            "paymentDayOfMonth": { "type": "number" },
+            "defaultMealName": { "type": "string", "maxLength": 50 }
+          }
+        }
+      },
+      "required": ["id", "code"]
+    },
+    "LunchRecord": {
+      "title": "LunchRecord",
+      "description": "Daily lunch attendance record",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "maxLength": 10 },
+        "status": { "type": "string", "enum": ["eaten", "canceled", "missed", "holiday", "unmarked"] },
+        "note": { "type": "string", "maxLength": 300 },
+        "updatedBy": { "type": "string", "maxLength": 60 },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["date", "status"]
+    },
+    "PaymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Monthly standing order payment record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 10 },
+        "monthKey": { "type": "string", "maxLength": 10 },
+        "label": { "type": "string", "maxLength": 50 },
+        "plannedAmount": { "type": "number" },
+        "paid": { "type": "boolean" },
+        "actualAmount": { "type": "number" },
+        "paidDate": { "type": "string", "maxLength": 10 },
+        "note": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "monthKey", "plannedAmount", "paid"]
+    },
+    "ExtraPayment": {
+      "title": "ExtraPayment",
+      "description": "Ad-hoc payment or refund",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 10 },
+        "amount": { "type": "number" },
+        "note": { "type": "string", "maxLength": 200 },
+        "type": { "type": "string", "enum": ["deposit", "refund"] }
+      },
+      "required": ["id", "date", "amount", "type"]
+    }
+  },
+  "firestore": {
+    "/families/{familyId}": {
+      "schema": "Family",
+      "description": "Family settings and profile document"
+    },
+    "/families/{familyId}/records/{dateStr}": {
+      "schema": "LunchRecord",
+      "description": "Day-by-day lunch attendance"
+    },
+    "/families/{familyId}/payments/{monthKey}": {
+      "schema": "PaymentRecord",
+      "description": "Monthly standing order payments"
+    },
+    "/families/{familyId}/extras/{extraId}": {
+      "schema": "ExtraPayment",
+      "description": "Extra deposits or school refunds"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Test connection doc
+    match /test/connection {
+      allow read, write: if true;
+    }
+
+    // Family documents and subcollections
+    match /families/{familyId} {
+      allow read, write: if request.auth != null || true;
+
+      match /records/{dateStr} {
+        allow read, write: if request.auth != null || true;
+      }
+
+      match /payments/{monthKey} {
+        allow read, write: if request.auth != null || true;
+      }
+
+      match /extras/{extraId} {
+        allow read, write: if request.auth != null || true;
+      }
+    }
+  }
+}
