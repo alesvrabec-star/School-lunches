@@ -196,8 +196,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  step="1"
+                  min="0"
+                  step="any"
                   required
                   value={form.pricePerLunch}
                   onChange={(e) =>
@@ -215,7 +215,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  step="10"
+                  step="any"
                   required
                   value={form.monthlyPayment}
                   onChange={(e) =>
@@ -232,6 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
                 <input
                   type="number"
+                  step="any"
                   value={form.initialBalance}
                   onChange={(e) =>
                     setForm({ ...form, initialBalance: Number(e.target.value) || 0 })

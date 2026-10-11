@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="40%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="plateGradMask" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <filter id="shadowMask" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#78350f" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Full bleed background for Android maskable adaptive icons -->
+  <rect width="512" height="512" fill="url(#bgGradMask)"/>
+
+  <!-- Centered inside 80% safe zone (scale down slightly by 0.78 around center) -->
+  <g transform="translate(256, 256) scale(0.78) translate(-256, -256)" filter="url(#shadowMask)">
+    <!-- Serving Cloche / Plate Base -->
+    <ellipse cx="256" cy="360" rx="150" ry="24" fill="#ffffff" fill-opacity="0.95"/>
+    <ellipse cx="256" cy="358" rx="136" ry="18" fill="#e2e8f0"/>
+
+    <!-- Warm Soup Bowl -->
+    <path d="M140 250 C140 336 210 350 256 350 C302 350 372 336 372 250 Z" fill="url(#plateGradMask)"/>
+    <ellipse cx="256" cy="250" rx="116" ry="22" fill="#ffffff" stroke="#cbd5e1" stroke-width="3"/>
+    <ellipse cx="256" cy="252" rx="98" ry="16" fill="#f97316"/>
+    <ellipse cx="256" cy="252" rx="80" ry="12" fill="#fb923c"/>
+
+    <!-- Fork on Left -->
+    <g transform="translate(108, 170) rotate(-22)">
+      <path d="M12 70 L12 170 C12 178 8 185 8 190 C8 194 12 196 16 196 C20 196 24 194 24 190 C24 185 20 178 20 170 L20 70 Z" fill="#ffffff"/>
+      <path d="M4 35 C4 55 10 70 16 70 C22 70 28 55 28 35 L28 10 C28 6 25 6 25 10 L25 40 L20 40 L20 10 C20 6 18 6 18 10 L18 40 L14 40 L14 10 C14 6 12 6 12 10 L12 40 L7 40 L7 10 C7 6 4 6 4 10 Z" fill="#ffffff"/>
+    </g>
+
+    <!-- Spoon on Right -->
+    <g transform="translate(372, 170) rotate(22)">
+      <path d="M12 70 L12 170 C12 178 8 185 8 190 C8 194 12 196 16 196 C20 196 24 194 24 190 C24 185 20 178 20 170 L20 70 Z" fill="#ffffff"/>
+      <ellipse cx="16" cy="36" rx="18" ry="28" fill="#ffffff"/>
+      <ellipse cx="16" cy="38" rx="13" ry="22" fill="#f1f5f9"/>
+    </g>
+
+    <!-- Steam Waves -->
+    <g stroke="#ffffff" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.95">
+      <path d="M224 210 Q212 180 226 150 T224 116"/>
+      <path d="M256 200 Q242 165 258 135 T256 100"/>
+      <path d="M288 210 Q302 180 288 150 T290 116"/>
+    </g>
+
+    <!-- Garnish -->
+    <circle cx="256" cy="252" r="7" fill="#22c55e"/>
+    <circle cx="268" cy="249" r="5" fill="#16a34a"/>
+  </g>
+</svg>

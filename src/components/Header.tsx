@@ -13,6 +13,7 @@ import {
 import { AppSettings, OverallSettlement } from '../types/lunch';
 import { FamilyInfo } from '../services/familySync';
 import { formatCzk } from '../utils/czechCalendar';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   activeTab: 'today_calendar' | 'settlement' | 'report' | 'settings';
@@ -142,6 +143,9 @@ export const Header: React.FC<HeaderProps> = ({
                 {formatCzk(settlement.currentBalance)}
               </div>
             </div>
+
+            {/* PWA Home screen install button */}
+            <PWAInstallButton />
 
             {/* Settings button */}
             <button

@@ -347,8 +347,27 @@ export default function App() {
   };
 
   const handleSaveSettings = (newSettings: AppSettings) => {
+    const monthlyPaymentChanged = newSettings.monthlyPayment !== settings.monthlyPayment;
     setSettings(newSettings);
     saveSettings(newSettings);
+
+    if (monthlyPaymentChanged) {
+      const updatedPayments = { ...payments };
+      Object.keys(updatedPayments).forEach((k) => {
+        const p = updatedPayments[k];
+        const newRecord: MonthlyPaymentRecord = {
+          ...p,
+          plannedAmount: newSettings.monthlyPayment,
+          actualAmount: p.paid ? p.actualAmount : newSettings.monthlyPayment,
+        };
+        updatedPayments[k] = newRecord;
+        if (familyInfo) {
+          syncPaymentToCloud(familyInfo.id, newRecord);
+        }
+      });
+      setPayments(updatedPayments);
+      savePayments(updatedPayments);
+    }
 
     if (familyInfo) {
       syncSettingsToCloud(familyInfo.id, newSettings);

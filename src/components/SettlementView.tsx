@@ -229,6 +229,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
               <div className="flex items-center gap-1">
                 <input
                   type="number"
+                  step="any"
                   value={initialInput}
                   onChange={(e) => setInitialInput(e.target.value)}
                   className="w-24 px-2 py-1 border border-stone-300 rounded bg-white font-mono text-xs"
@@ -460,7 +461,8 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                 <input
                   type="number"
                   required
-                  min="1"
+                  min="0.01"
+                  step="any"
                   value={extraAmount}
                   onChange={(e) => setExtraAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-mono focus:ring-1 focus:ring-amber-500"
