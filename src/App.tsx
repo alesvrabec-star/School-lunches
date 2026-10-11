@@ -284,19 +284,27 @@ export default function App() {
     }
   };
 
-  const handleUpdatePaymentAmount = (monthKey: string, amount: number) => {
+  const handleUpdatePaymentAmount = (
+    monthKey: string,
+    amount: number,
+    paid?: boolean,
+    note?: string
+  ) => {
     const existing = payments[monthKey] || {
       id: monthKey,
       monthKey,
       label: monthKey,
-      plannedAmount: settings.monthlyPayment,
-      paid: true,
+      plannedAmount: amount,
+      paid: paid ?? false,
       actualAmount: amount,
     };
 
     const newPayment: MonthlyPaymentRecord = {
       ...existing,
+      plannedAmount: amount,
       actualAmount: amount,
+      paid: paid !== undefined ? paid : existing.paid,
+      note: note !== undefined ? note : existing.note,
     };
 
     const updated = {
@@ -310,6 +318,23 @@ export default function App() {
     if (familyInfo) {
       syncPaymentToCloud(familyInfo.id, newPayment);
     }
+  };
+
+  const handleApplyPaymentToAllMonths = (amount: number) => {
+    const updated = { ...payments };
+    Object.keys(updated).forEach((k) => {
+      const item: MonthlyPaymentRecord = {
+        ...updated[k],
+        plannedAmount: amount,
+        actualAmount: amount,
+      };
+      updated[k] = item;
+      if (familyInfo) {
+        syncPaymentToCloud(familyInfo.id, item);
+      }
+    });
+    setPayments(updated);
+    savePayments(updated);
   };
 
   const handleAddExtraPayment = (extra: Omit<ExtraPayment, 'id'>) => {
@@ -501,6 +526,7 @@ export default function App() {
             extraPayments={extraPayments}
             onTogglePaymentPaid={handleTogglePaymentPaid}
             onUpdatePaymentAmount={handleUpdatePaymentAmount}
+            onApplyPaymentToAllMonths={handleApplyPaymentToAllMonths}
             onAddExtraPayment={handleAddExtraPayment}
             onDeleteExtraPayment={handleDeleteExtraPayment}
             onUpdateInitialBalance={handleUpdateInitialBalance}

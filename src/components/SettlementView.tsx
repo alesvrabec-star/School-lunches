@@ -14,6 +14,10 @@ import {
   TrendingUp,
   Receipt,
   Sparkles,
+  Pencil,
+  RefreshCw,
+  X,
+  Check,
 } from 'lucide-react';
 import {
   AppSettings,
@@ -36,7 +40,8 @@ interface SettlementViewProps {
   payments: Record<string, MonthlyPaymentRecord>;
   extraPayments: ExtraPayment[];
   onTogglePaymentPaid: (monthKey: string) => void;
-  onUpdatePaymentAmount: (monthKey: string, amount: number) => void;
+  onUpdatePaymentAmount: (monthKey: string, amount: number, paid?: boolean, note?: string) => void;
+  onApplyPaymentToAllMonths: (amount: number) => void;
   onAddExtraPayment: (payment: Omit<ExtraPayment, 'id'>) => void;
   onDeleteExtraPayment: (id: string) => void;
   onUpdateInitialBalance: (amount: number) => void;
@@ -51,6 +56,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
   extraPayments,
   onTogglePaymentPaid,
   onUpdatePaymentAmount,
+  onApplyPaymentToAllMonths,
   onAddExtraPayment,
   onDeleteExtraPayment,
   onUpdateInitialBalance,
@@ -65,7 +71,38 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
   const [editingInitial, setEditingInitial] = useState(false);
   const [initialInput, setInitialInput] = useState(String(settings.initialBalance || 0));
 
+  // Edit single month payment modal
+  const [editingMonthKey, setEditingMonthKey] = useState<string | null>(null);
+  const [editPaymentAmount, setEditPaymentAmount] = useState<string>('');
+  const [editPaymentPaid, setEditPaymentPaid] = useState<boolean>(true);
+  const [editPaymentNote, setEditPaymentNote] = useState<string>('');
+
   const schoolMonths = getSchoolMonths(settings.schoolYearStartYear);
+
+  const openEditPayment = (monthKey: string) => {
+    const pay = payments[monthKey];
+    const currentVal = pay?.actualAmount ?? pay?.plannedAmount ?? settings.monthlyPayment;
+    setEditingMonthKey(monthKey);
+    setEditPaymentAmount(String(currentVal));
+    setEditPaymentPaid(pay?.paid ?? false);
+    setEditPaymentNote(pay?.note || '');
+  };
+
+  const handleSaveMonthPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMonthKey) return;
+    const amountVal = parseFloat(editPaymentAmount) || 0;
+    onUpdatePaymentAmount(editingMonthKey, amountVal, editPaymentPaid, editPaymentNote);
+    setEditingMonthKey(null);
+  };
+
+  const handleApplyCurrentToAll = () => {
+    const amountVal = parseFloat(editPaymentAmount) || 0;
+    if (confirm(`Nastavit částku ${formatCzk(amountVal)} pro všechny měsíce školního roku (září až červen)?`)) {
+      onApplyPaymentToAllMonths(amountVal);
+      setEditingMonthKey(null);
+    }
+  };
 
   const handleSaveExtra = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +126,6 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
   };
 
   // Recommended monthly payment calculation
-  // Total school days in year is around 196
   let totalYearSchoolDays = 0;
   schoolMonths.forEach((m) => {
     const days = getMonthDays(m.year, m.monthIndex);
@@ -98,7 +134,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
     });
   });
   const recommendedYearTotal = totalYearSchoolDays * settings.pricePerLunch;
-  const recommendedMonthly = Math.ceil(recommendedYearTotal / 10 / 10) * 10; // round up to 10s
+  const recommendedMonthly = Math.ceil(recommendedYearTotal / 10 / 10) * 10;
 
   const isCurrentSurplus = settlement.currentBalance >= 0;
   const isProjectedSurplus = settlement.projectedEndYearBalance >= 0;
@@ -117,8 +153,8 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
               Stav trvalého příkazu & vyúčtování
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-2xl">
-              Evidujete {formatCzk(settings.monthlyPayment)}/měsíc trvalým příkazem. Zde vidíte
-              skutečný průběžný stav i kalkulaci toho, co vám škola vrátí nebo naúčtuje na konci roku.
+              Měsíční trvalý příkaz v nastavení: <strong>{formatCzk(settings.monthlyPayment)}</strong>.
+              Zde můžete upravit jednotlivé měsíční platby a sledovat, kolik vám škola vrátí.
             </p>
           </div>
 
@@ -271,23 +307,45 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
 
       {/* Monthly Payments Table */}
       <div className="bg-white border border-stone-200 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-b border-stone-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-base sm:text-lg font-bold text-stone-900">
               Měsíční rozpis trvalého příkazu ({settings.schoolYear})
             </h3>
             <p className="text-xs text-stone-500">
-              Označte, které měsíce již odešly z bankovního účtu, nebo upravte přesnou částku.
+              Klikněte na jakoukoliv částku pro její úpravu, nebo označte, které měsíce odešly.
             </p>
           </div>
 
-          <button
-            onClick={() => setShowAddExtra(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800 transition-colors shadow-2xs self-start sm:self-auto"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Přidat mimořádnou platbu / vratku</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 1-click sync all months to settings.monthlyPayment */}
+            <button
+              onClick={() => {
+                if (
+                  confirm(
+                    `Chcete nastavit částku ${formatCzk(
+                      settings.monthlyPayment
+                    )} pro VŠECHNY měsíce (září až červen)?`
+                  )
+                ) {
+                  onApplyPaymentToAllMonths(settings.monthlyPayment);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors shadow-2xs"
+              title={`Sjednotí všechny měsíce na ${formatCzk(settings.monthlyPayment)}`}
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
+              <span>Sjednotit všechny měsíce na {formatCzk(settings.monthlyPayment)}</span>
+            </button>
+
+            <button
+              onClick={() => setShowAddExtra(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-stone-900 text-white hover:bg-stone-800 transition-colors shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Mimořádný vklad / vratka</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -295,12 +353,13 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
             <thead>
               <tr className="border-b border-stone-200 bg-stone-50 text-stone-600 font-bold">
                 <th className="py-3 px-4">Měsíc</th>
-                <th className="py-3 px-4">Trvalý příkaz</th>
+                <th className="py-3 px-4">Částka platby</th>
                 <th className="py-3 px-4 text-center">Stav platby</th>
                 <th className="py-3 px-4 text-right">Odebráno</th>
                 <th className="py-3 px-4 text-right">Odhlášeno</th>
                 <th className="py-3 px-4 text-right">Skutečné náklady</th>
                 <th className="py-3 px-4 text-right">Měsíční bilance</th>
+                <th className="py-3 px-3 text-center">Úprava</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
@@ -316,19 +375,34 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                 );
 
                 const isPaid = pay?.paid ?? false;
-                const paidAmount = isPaid ? (pay?.actualAmount ?? pay?.plannedAmount ?? settings.monthlyPayment) : 0;
+                const currentMonthAmount = pay?.actualAmount ?? pay?.plannedAmount ?? settings.monthlyPayment;
+                const paidAmount = isPaid ? currentMonthAmount : 0;
                 const monthDiff = isPaid ? paidAmount - summary.totalCost : -summary.totalCost;
 
                 return (
                   <tr key={m.key} className="hover:bg-stone-50/70 transition-colors">
                     <td className="py-3 px-4 font-semibold text-stone-900">
-                      {m.label}
+                      <div>{m.label}</div>
+                      {pay?.note && (
+                        <div className="text-[10px] text-stone-500 font-normal italic">
+                          {pay.note}
+                        </div>
+                      )}
                     </td>
 
+                    {/* Editable Payment Amount */}
                     <td className="py-3 px-4 font-mono">
-                      {formatCzk(pay?.plannedAmount ?? settings.monthlyPayment)}
+                      <button
+                        onClick={() => openEditPayment(m.key)}
+                        className="group inline-flex items-center gap-1.5 font-bold text-stone-900 hover:text-amber-700 py-1 px-1.5 -ml-1.5 rounded-lg hover:bg-amber-50/80 transition-colors"
+                        title="Klikněte pro změnu částky"
+                      >
+                        <span>{formatCzk(currentMonthAmount)}</span>
+                        <Pencil className="w-3.5 h-3.5 text-stone-400 group-hover:text-amber-600 opacity-60 group-hover:opacity-100" />
+                      </button>
                     </td>
 
+                    {/* Paid Toggle Button */}
                     <td className="py-3 px-4 text-center">
                       <button
                         onClick={() => onTogglePaymentPaid(m.key)}
@@ -372,6 +446,17 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
                         </span>
                       )}
                     </td>
+
+                    {/* Edit button */}
+                    <td className="py-3 px-3 text-center">
+                      <button
+                        onClick={() => openEditPayment(m.key)}
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 transition-colors"
+                        title="Upravit platbu za tento měsíc"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -380,7 +465,123 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
         </div>
       </div>
 
-      {/* Extra Payments List (if any or modal) */}
+      {/* Edit Month Payment Modal */}
+      {editingMonthKey && (
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-stone-200">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-stone-200">
+              <div>
+                <h3 className="text-lg font-bold text-stone-900">
+                  Upravit platbu za {schoolMonths.find((m) => m.key === editingMonthKey)?.label}
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Zadejte skutečnou částku, která za tento měsíc odešla nebo má odejít.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingMonthKey(null)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMonthPayment} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Částka měsíční platby (Kč)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  required
+                  value={editPaymentAmount}
+                  onChange={(e) => setEditPaymentAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-stone-300 rounded-xl text-base font-mono font-bold text-stone-900 focus:ring-1 focus:ring-amber-500"
+                  autoFocus
+                />
+                <span className="text-[11px] text-stone-500 mt-1 block">
+                  Např. 683 Kč (můžete zadat přesnou částku na koruny)
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Stav platby
+                </label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setEditPaymentPaid(true)}
+                    className={`py-2 px-3 rounded-lg border font-semibold text-center transition-colors ${
+                      editPaymentPaid
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-1 ring-emerald-500'
+                        : 'border-stone-200 text-stone-600'
+                    }`}
+                  >
+                    Odesláno z banky ✔️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditPaymentPaid(false)}
+                    className={`py-2 px-3 rounded-lg border font-semibold text-center transition-colors ${
+                      !editPaymentPaid
+                        ? 'bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-500'
+                        : 'border-stone-200 text-stone-600'
+                    }`}
+                  >
+                    Čeká na odeslání
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Poznámka k platbě (nepovinné)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Např. Platba z účtu mBank, variabilní symbol 4208"
+                  value={editPaymentNote}
+                  onChange={(e) => setEditPaymentNote(e.target.value)}
+                  className="w-full px-3 py-2 border border-stone-300 rounded-xl text-xs text-stone-800"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="pt-2 border-t border-stone-200 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleApplyCurrentToAll}
+                  className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Nastavit {formatCzk(parseFloat(editPaymentAmount) || 0)} pro VŠECHNY měsíce</span>
+                </button>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditingMonthKey(null)}
+                    className="px-4 py-2 border border-stone-200 text-stone-600 rounded-xl text-xs font-semibold hover:bg-stone-50"
+                  >
+                    Zrušit
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-stone-900 text-white rounded-xl text-xs font-semibold hover:bg-stone-800 shadow-2xs"
+                  >
+                    Uložit pro tento měsíc
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Extra Payments List */}
       {extraPayments.length > 0 && (
         <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-xs">
           <h3 className="text-sm sm:text-base font-bold text-stone-900 mb-3">
