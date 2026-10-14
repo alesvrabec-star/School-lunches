@@ -665,6 +665,27 @@ export default function App() {
                   </div>
                   <span className="text-xs font-semibold text-sky-800">Zadat ›</span>
                 </button>
+
+                {/* School report & PDF shortcut */}
+                <button
+                  onClick={() => setActiveTab('report')}
+                  className="w-full p-3.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100/70 rounded-xl flex items-center justify-between text-left transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm">
+                      📄
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-stone-900">
+                        Tiskový podklad & PDF pro jídelnu
+                      </div>
+                      <div className="text-[11px] text-emerald-800">
+                        Vygenerovat a stáhnout oficiální PDF vyúčtování
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-800">Otevřít ›</span>
+                </button>
               </div>
             </div>
           </div>
