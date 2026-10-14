@@ -31,6 +31,7 @@ import {
   formatDateToIso,
   getSchoolMonths,
   getMonthDays,
+  formatCzk,
 } from './utils/czechCalendar';
 import { testFirebaseConnection } from './firebase';
 import {
@@ -48,9 +49,10 @@ import {
   syncExtraPaymentToCloud,
   syncSettingsToCloud,
 } from './services/familySync';
+import { MobileBottomNav, AppTab } from './components/MobileBottomNav';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'today_calendar' | 'settlement' | 'report' | 'settings'>('today_calendar');
+  const [activeTab, setActiveTab] = useState<AppTab>('today');
   const [todayIso] = useState<string>(() => formatDateToIso(new Date()));
 
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
@@ -515,11 +517,10 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
-        {/* Tab 1: Today & Fridge Calendar */}
-        {activeTab === 'today_calendar' && (
-          <div className="space-y-6">
-            {/* Quick Hero Today Widget */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-8 pb-24 md:pb-8">
+        {/* Tab 1: Today (Optimized for quick 1-tap mobile logging) */}
+        {activeTab === 'today' && (
+          <div className="space-y-5">
             <TodayWidget
               todayIso={todayIso}
               records={records}
@@ -529,22 +530,39 @@ export default function App() {
               onOpenDayModal={(iso) => setDayModalDate(iso)}
             />
 
-            {/* Visual Fridge Calendar */}
-            <FridgeCalendar
-              selectedMonthKey={selectedMonthKey}
-              setSelectedMonthKey={setSelectedMonthKey}
-              records={records}
-              payments={payments}
-              settings={settings}
-              todayIso={todayIso}
-              onOpenDayModal={(iso) => setDayModalDate(iso)}
-              onOpenBatchModal={() => setIsBatchModalOpen(true)}
-              onBulkFillMonth={handleBulkFillMonth}
-            />
+            {/* On desktop, show fridge calendar directly below for combined view */}
+            <div className="hidden md:block">
+              <FridgeCalendar
+                selectedMonthKey={selectedMonthKey}
+                setSelectedMonthKey={setSelectedMonthKey}
+                records={records}
+                payments={payments}
+                settings={settings}
+                todayIso={todayIso}
+                onOpenDayModal={(iso) => setDayModalDate(iso)}
+                onOpenBatchModal={() => setIsBatchModalOpen(true)}
+                onBulkFillMonth={handleBulkFillMonth}
+              />
+            </div>
           </div>
         )}
 
-        {/* Tab 2: Settlement & Standing Orders */}
+        {/* Tab 2: Calendar (Lednice - mobile 5-day school grid) */}
+        {activeTab === 'calendar' && (
+          <FridgeCalendar
+            selectedMonthKey={selectedMonthKey}
+            setSelectedMonthKey={setSelectedMonthKey}
+            records={records}
+            payments={payments}
+            settings={settings}
+            todayIso={todayIso}
+            onOpenDayModal={(iso) => setDayModalDate(iso)}
+            onOpenBatchModal={() => setIsBatchModalOpen(true)}
+            onBulkFillMonth={handleBulkFillMonth}
+          />
+        )}
+
+        {/* Tab 3: Settlement & Standing Orders */}
         {activeTab === 'settlement' && (
           <SettlementView
             settings={settings}
@@ -562,7 +580,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 3: Formal School Kitchen Report & Print */}
+        {/* Tab 4: Formal School Kitchen Report & Print */}
         {activeTab === 'report' && (
           <ReportView
             settings={settings}
@@ -573,27 +591,93 @@ export default function App() {
           />
         )}
 
-        {/* Tab 4 on Mobile: Settings */}
+        {/* Tab 5 on Mobile: Settings Hub */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-2xl p-6 border border-stone-200">
-            <h2 className="text-xl font-bold mb-4">Nastavení</h2>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => setIsFamilyModalOpen(true)}
-                className="px-4 py-2.5 bg-amber-600 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-              >
-                <span>Rodinné sdílení s manželkou</span>
-              </button>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="px-4 py-2 bg-stone-900 text-white rounded-xl text-sm font-semibold"
-              >
-                Otevřít dialog nastavení
-              </button>
+          <div className="space-y-4 max-w-xl mx-auto">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-stone-200 shadow-xs">
+              <h2 className="text-base sm:text-lg font-bold text-stone-900 mb-1">
+                Nastavení a správa Obědníku
+              </h2>
+              <p className="text-xs text-stone-500 mb-4">
+                {settings.child.name} · {settings.child.grade || 'Základní škola'} · Trvalý příkaz {formatCzk(settings.monthlyPayment)}
+              </p>
+
+              <div className="space-y-2.5">
+                {/* Family sharing shortcut */}
+                <button
+                  onClick={() => setIsFamilyModalOpen(true)}
+                  className="w-full p-3.5 bg-amber-50 border border-amber-200 hover:bg-amber-100/70 rounded-xl flex items-center justify-between text-left transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-sm">
+                      👨‍👩‍👦
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-stone-900">
+                        Rodinné sdílení s manželkou
+                      </div>
+                      <div className="text-[11px] text-amber-900 font-medium">
+                        {familyInfo ? `Propojeno (${familyInfo.code})` : 'Nastavit kód pro druhý telefon'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-800">Otevřít ›</span>
+                </button>
+
+                {/* Primary settings dialog */}
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="w-full p-3.5 bg-stone-50 border border-stone-200 hover:bg-stone-100 rounded-xl flex items-center justify-between text-left transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-stone-900 text-white flex items-center justify-center font-bold text-sm">
+                      ⚙️
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-stone-900">
+                        Cena oběda & Trvalý příkaz
+                      </div>
+                      <div className="text-[11px] text-stone-500">
+                        {settings.pricePerLunch} Kč / oběd · {formatCzk(settings.monthlyPayment)} / měs.
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-stone-700">Upravit ›</span>
+                </button>
+
+                {/* Batch multi-day cancel */}
+                <button
+                  onClick={() => setIsBatchModalOpen(true)}
+                  className="w-full p-3.5 bg-sky-50 border border-sky-200 hover:bg-sky-100/70 rounded-xl flex items-center justify-between text-left transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-sm">
+                      📅
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-stone-900">
+                        Hromadné odhlášení na více dní
+                      </div>
+                      <div className="text-[11px] text-sky-800">
+                        Rychlé odhlášení při nemoci nebo pobytu
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-sky-800">Zadat ›</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
       </main>
+
+      {/* Mobile Native Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        hasFamily={!!familyInfo}
+        onOpenFamilyModal={() => setIsFamilyModalOpen(true)}
+      />
 
       {/* Footer */}
       <footer className="print:hidden border-t border-stone-200 bg-white py-4 mt-auto">
