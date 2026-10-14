@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import {
+  buildLunchPdfDocument,
+  downloadOrSharePdf,
+  openPdfInNewTab,
+} from '../utils/pdfGenerator';
 import {
   Printer,
   Download,
@@ -58,105 +61,23 @@ export const ReportView: React.FC<ReportViewProps> = ({
   const reportRef = useRef<HTMLDivElement>(null);
   const schoolMonths = getSchoolMonths(settings.schoolYearStartYear);
 
-  // Direct PDF generation and download via html2canvas & jsPDF
+  // Direct vector PDF generation via jsPDF & LiberationSans font (100% reliable on mobile and desktop)
   const handleSavePdf = async () => {
-    if (!reportRef.current) return;
     setIsGeneratingPdf(true);
     setStatusMessage({
       type: 'info',
-      text: 'Generuji PDF soubor... Může to trvat několik sekund.',
+      text: 'Generuji PDF vyúčtování...',
     });
 
     try {
-      const reportEl = reportRef.current;
-
-      // Capture element with html2canvas formatted specifically for A4 document width
-      const canvas = await html2canvas(reportEl, {
-        scale: 2, // 2x resolution for razor-sharp text
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: 1024,
-        onclone: (clonedDoc) => {
-          const clonedReport = clonedDoc.getElementById('printable-report-content');
-          if (clonedReport) {
-            clonedReport.style.width = '800px';
-            clonedReport.style.maxWidth = '800px';
-            clonedReport.style.margin = '0 auto';
-            clonedReport.style.padding = '32px';
-            clonedReport.style.boxShadow = 'none';
-            clonedReport.style.border = 'none';
-            clonedReport.style.backgroundColor = '#ffffff';
-
-            // Make sure signature box is visible in cloned PDF render
-            const signatures = clonedDoc.getElementById('report-signatures');
-            if (signatures) {
-              signatures.style.display = 'grid';
-            }
-
-            // Hide UI controls that shouldn't appear in document
-            const hiddenElements = clonedDoc.querySelectorAll('.print\\:hidden');
-            hiddenElements.forEach((el) => {
-              (el as HTMLElement).style.display = 'none';
-            });
-
-            // Prevent horizontal clipping of tables
-            const overflowContainers = clonedDoc.querySelectorAll('.overflow-x-auto');
-            overflowContainers.forEach((c) => {
-              (c as HTMLElement).style.overflow = 'visible';
-            });
-          }
-        },
+      const doc = buildLunchPdfDocument({
+        settings,
+        settlement,
+        records,
+        payments,
+        monthFilter: selectedMonthFilter,
+        todayIso,
       });
-
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const pageHeightInPx = Math.floor(canvasWidth * (pdfHeight / pdfWidth));
-
-      let renderedHeight = 0;
-      let pageIndex = 0;
-
-      while (renderedHeight < canvasHeight) {
-        const sourceY = renderedHeight;
-        const sourceHeight = Math.min(pageHeightInPx, canvasHeight - sourceY);
-
-        // Create canvas slice for this specific page
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvasWidth;
-        pageCanvas.height = pageHeightInPx;
-
-        const ctx = pageCanvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          ctx.drawImage(
-            canvas,
-            0,
-            sourceY,
-            canvasWidth,
-            sourceHeight,
-            0,
-            0,
-            canvasWidth,
-            sourceHeight
-          );
-        }
-
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
-
-        if (pageIndex > 0) {
-          pdf.addPage();
-        }
-
-        pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-
-        renderedHeight += sourceHeight;
-        pageIndex++;
-      }
 
       const cleanChildName = (settings.child.name || 'zak')
         .trim()
@@ -165,19 +86,28 @@ export const ReportView: React.FC<ReportViewProps> = ({
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9_-]/gi, '_');
       const cleanYear = (settings.schoolYear || '2026-2027').replace(/[^0-9-]/g, '-');
-      const fileName = `vyuctovani_obedu_${cleanChildName}_${cleanYear}.pdf`;
+      const monthSuffix =
+        selectedMonthFilter !== 'all' ? `_${selectedMonthFilter}` : '';
+      const fileName = `vyuctovani_obedu_${cleanChildName}_${cleanYear}${monthSuffix}.pdf`;
 
-      pdf.save(fileName);
+      const result = await downloadOrSharePdf(doc, fileName, settings.child.name);
 
-      setStatusMessage({
-        type: 'success',
-        text: `PDF soubor „${fileName}“ byl úspěšně vygenerován a stažen do vašeho zařízení!`,
-      });
+      if (result.method === 'share') {
+        setStatusMessage({
+          type: 'success',
+          text: `PDF „${fileName}“ je připraveno ke sdílení, tisku nebo uložení do Souborů!`,
+        });
+      } else {
+        setStatusMessage({
+          type: 'success',
+          text: `PDF soubor „${fileName}“ byl úspěšně vygenerován a stažen do vašeho zařízení!`,
+        });
+      }
     } catch (err) {
-      console.error('Error generating PDF:', err);
+      console.error('Error generating vector PDF:', err);
       setStatusMessage({
         type: 'error',
-        text: 'Generování PDF selhalo. Zkuste to prosím znovu nebo použijte Export do CSV.',
+        text: 'Generování PDF selhalo. Zkuste prosím náhled v novém okně nebo Export CSV.',
       });
     } finally {
       setIsGeneratingPdf(false);
@@ -187,28 +117,40 @@ export const ReportView: React.FC<ReportViewProps> = ({
     }
   };
 
+  const handleOpenPdfPreview = () => {
+    try {
+      const doc = buildLunchPdfDocument({
+        settings,
+        settlement,
+        records,
+        payments,
+        monthFilter: selectedMonthFilter,
+        todayIso,
+      });
+      openPdfInNewTab(doc);
+    } catch (err) {
+      console.error('Error opening PDF preview:', err);
+      handleSavePdf();
+    }
+  };
+
   const handlePrint = async () => {
-    // Check if we are inside an iframe where window.print is usually blocked
+    // Check if we are inside an iframe where window.print is blocked by browser sandbox
     const isInIframe = window.self !== window.top;
 
     if (isInIframe) {
-      // In sandbox/iframe window.print() throws SecurityError or silently fails
-      try {
-        window.print();
-      } catch (err) {
-        console.warn('Direct print blocked by browser sandbox:', err);
-        setStatusMessage({
-          type: 'info',
-          text: 'Přímý tisk z okna byl zablokován zabezpečením prohlížeče. Generuji pro vás PDF ke stažení...',
-        });
-        await handleSavePdf();
-        return;
-      }
+      // In sandbox/iframe, window.print() can throw SecurityError or silently fail.
+      // We directly provide the high-fidelity PDF!
+      setStatusMessage({
+        type: 'info',
+        text: 'Přímý tisk z rámu je zablokován prohlížečem. Generuji pro vás PDF vyúčtování...',
+      });
+      await handleSavePdf();
     } else {
       try {
         window.print();
       } catch (err) {
-        console.warn('Window print failed, falling back to PDF generation:', err);
+        console.warn('Window print failed, falling back to PDF:', err);
         await handleSavePdf();
       }
     }
@@ -290,12 +232,12 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* 1. Primary Action: Direct PDF Download */}
+          {/* 1. Primary Action: Direct PDF Download / Share */}
           <button
             onClick={handleSavePdf}
             disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-xs font-bold transition-all shadow-sm"
-            title="Vygenerovat a stáhnout oficiální PDF vyúčtování"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-xs font-bold transition-all shadow-sm"
+            title="Vygenerovat a stáhnout oficiální PDF vyúčtování do mobilu či PC"
           >
             {isGeneratingPdf ? (
               <>
@@ -310,26 +252,37 @@ export const ReportView: React.FC<ReportViewProps> = ({
             )}
           </button>
 
-          {/* 2. Print action */}
+          {/* 2. Open PDF Preview in new tab */}
+          <button
+            onClick={handleOpenPdfPreview}
+            disabled={isGeneratingPdf}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-300 text-stone-700 bg-white hover:bg-stone-50 active:bg-stone-100 text-xs font-semibold transition-colors shadow-2xs"
+            title="Otevřít vygenerované PDF v novém okně prohlížeče"
+          >
+            <ExternalLink className="w-4 h-4 text-stone-500" />
+            <span>Náhled PDF</span>
+          </button>
+
+          {/* 3. Print action */}
           <button
             onClick={handlePrint}
             disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-900 text-white hover:bg-stone-800 text-xs font-semibold transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-stone-900 text-white hover:bg-stone-800 text-xs font-semibold transition-colors shadow-2xs"
             title="Otevřít tiskový dialog"
           >
             <Printer className="w-4 h-4" />
             <span>Vytisknout</span>
           </button>
 
-          {/* 3. CSV export for Excel */}
+          {/* 4. CSV export for Excel */}
           <button
             onClick={handleExportCsv}
             disabled={isGeneratingPdf}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-stone-300 text-stone-700 bg-white hover:bg-stone-50 text-xs font-semibold transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-stone-300 text-stone-700 bg-white hover:bg-stone-50 text-xs font-semibold transition-colors shadow-2xs"
             title="Exportovat do tabulkového procesoru Excel"
           >
             <Download className="w-4 h-4 text-stone-500" />
-            <span>Exportovat CSV (Excel)</span>
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
