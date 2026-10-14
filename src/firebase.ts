@@ -1,12 +1,19 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: Must use firestoreDatabaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// CRITICAL: Must use firestoreDatabaseId and ignoreUndefinedProperties so undefined fields never crash Firestore
+export const db = initializeFirestore(
+  app,
+  {
+    ignoreUndefinedProperties: true,
+  },
+  firebaseConfig.firestoreDatabaseId
+);
+
 export const auth = getAuth(app);
 
 // Test Firestore connection on boot as required by skill
@@ -21,12 +28,5 @@ export async function testFirebaseConnection() {
 }
 
 export async function ensureAuth() {
-  if (!auth.currentUser) {
-    try {
-      await signInAnonymously(auth);
-    } catch (e) {
-      console.warn('Anonymous auth failed or offline', e);
-    }
-  }
   return auth.currentUser;
 }

@@ -10,7 +10,7 @@ import {
   deleteDoc,
   Unsubscribe,
 } from 'firebase/firestore';
-import { db, ensureAuth } from '../firebase';
+import { db } from '../firebase';
 import {
   AppSettings,
   LunchRecord,
@@ -27,7 +27,7 @@ export interface FamilyInfo {
 }
 
 const LOCAL_FAMILY_KEY = 'obednik_family_session_v1';
-const LOCAL_USER_ROLE_KEY = 'obednik_user_role_v1'; // 'Táta' | 'Máma' | custom
+const LOCAL_USER_ROLE_KEY = 'obednik_user_role_v1';
 
 export function getStoredFamilyId(): string | null {
   return localStorage.getItem(LOCAL_FAMILY_KEY);
@@ -54,6 +54,22 @@ function generateReadableCode(): string {
   return `OBED-${num}`;
 }
 
+// Remove any undefined values recursively so Firestore never crashes
+export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  const cleaned: any = Array.isArray(obj) ? [] : {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      if (val !== null && typeof val === 'object' && !(val instanceof Date)) {
+        cleaned[key] = sanitizeForFirestore(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned;
+}
+
 export async function createFamily(
   familyName: string,
   initialSettings: AppSettings,
@@ -61,18 +77,17 @@ export async function createFamily(
   existingPayments: Record<string, MonthlyPaymentRecord>,
   existingExtras: ExtraPayment[]
 ): Promise<FamilyInfo> {
-  await ensureAuth();
   const familyId = `fam_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const code = generateReadableCode();
 
-  const familyData = {
+  const familyData = sanitizeForFirestore({
     id: familyId,
     code,
     name: familyName || `Rodina (${initialSettings.child.name})`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     settings: initialSettings,
-  };
+  });
 
   // 1. Create family document
   await setDoc(doc(db, 'families', familyId), familyData);
@@ -81,21 +96,21 @@ export async function createFamily(
   const batchPromises: Promise<any>[] = [];
   Object.values(existingRecords).forEach((rec) => {
     batchPromises.push(
-      setDoc(doc(db, 'families', familyId, 'records', rec.date), rec)
+      setDoc(doc(db, 'families', familyId, 'records', rec.date), sanitizeForFirestore(rec))
     );
   });
 
   // 3. Upload initial payments
   Object.values(existingPayments).forEach((pay) => {
     batchPromises.push(
-      setDoc(doc(db, 'families', familyId, 'payments', pay.monthKey), pay)
+      setDoc(doc(db, 'families', familyId, 'payments', pay.monthKey), sanitizeForFirestore(pay))
     );
   });
 
   // 4. Upload initial extras
   existingExtras.forEach((extra) => {
     batchPromises.push(
-      setDoc(doc(db, 'families', familyId, 'extras', extra.id), extra)
+      setDoc(doc(db, 'families', familyId, 'extras', extra.id), sanitizeForFirestore(extra))
     );
   });
 
@@ -112,7 +127,6 @@ export async function createFamily(
 }
 
 export async function joinFamilyByCode(code: string): Promise<FamilyInfo | null> {
-  await ensureAuth();
   const cleanCode = code.trim().toUpperCase();
   const q = query(collection(db, 'families'), where('code', '==', cleanCode));
   const snapshot = await getDocs(q);
@@ -136,7 +150,6 @@ export async function joinFamilyByCode(code: string): Promise<FamilyInfo | null>
 }
 
 export async function getFamilyById(familyId: string): Promise<FamilyInfo | null> {
-  await ensureAuth();
   const snap = await getDoc(doc(db, 'families', familyId));
   if (!snap.exists()) return null;
   const data = snap.data();
@@ -227,18 +240,27 @@ export function subscribeToFamily(
   };
 }
 
-// Remote Mutations:
+// Remote Mutations with Sanitization and Safety:
 export async function syncRecordToCloud(
   familyId: string,
   record: LunchRecord | null,
   dateStr: string
 ) {
-  await ensureAuth();
-  const ref = doc(db, 'families', familyId, 'records', dateStr);
-  if (!record || record.status === 'unmarked') {
-    await deleteDoc(ref);
-  } else {
-    await setDoc(ref, record);
+  try {
+    const ref = doc(db, 'families', familyId, 'records', dateStr);
+    if (!record || record.status === 'unmarked') {
+      await deleteDoc(ref);
+    } else {
+      const payload = sanitizeForFirestore({
+        date: record.date || dateStr,
+        status: record.status,
+        note: record.note && record.note.trim() ? record.note.trim() : null,
+        updatedAt: record.updatedAt || Date.now(),
+      });
+      await setDoc(ref, payload);
+    }
+  } catch (err) {
+    console.error(`Failed to sync record ${dateStr} to Firestore:`, err);
   }
 }
 
@@ -246,9 +268,12 @@ export async function syncPaymentToCloud(
   familyId: string,
   payment: MonthlyPaymentRecord
 ) {
-  await ensureAuth();
-  const ref = doc(db, 'families', familyId, 'payments', payment.monthKey);
-  await setDoc(ref, payment);
+  try {
+    const ref = doc(db, 'families', familyId, 'payments', payment.monthKey);
+    await setDoc(ref, sanitizeForFirestore(payment));
+  } catch (err) {
+    console.error(`Failed to sync payment ${payment.monthKey} to Firestore:`, err);
+  }
 }
 
 export async function syncExtraPaymentToCloud(
@@ -256,12 +281,15 @@ export async function syncExtraPaymentToCloud(
   extra: ExtraPayment | null,
   id: string
 ) {
-  await ensureAuth();
-  const ref = doc(db, 'families', familyId, 'extras', id);
-  if (!extra) {
-    await deleteDoc(ref);
-  } else {
-    await setDoc(ref, extra);
+  try {
+    const ref = doc(db, 'families', familyId, 'extras', id);
+    if (!extra) {
+      await deleteDoc(ref);
+    } else {
+      await setDoc(ref, sanitizeForFirestore(extra));
+    }
+  } catch (err) {
+    console.error(`Failed to sync extra ${id} to Firestore:`, err);
   }
 }
 
@@ -269,7 +297,14 @@ export async function syncSettingsToCloud(
   familyId: string,
   settings: AppSettings
 ) {
-  await ensureAuth();
-  const ref = doc(db, 'families', familyId);
-  await setDoc(ref, { settings, updatedAt: new Date().toISOString() }, { merge: true });
+  try {
+    const ref = doc(db, 'families', familyId);
+    await setDoc(
+      ref,
+      sanitizeForFirestore({ settings, updatedAt: new Date().toISOString() }),
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('Failed to sync settings to Firestore:', err);
+  }
 }

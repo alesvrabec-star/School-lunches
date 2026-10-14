@@ -129,14 +129,42 @@ export default function App() {
       },
       onRecordsChange: (newRecords) => {
         isSyncingFromCloudRef.current = true;
-        setRecords(newRecords);
-        saveRecords(newRecords);
+        setRecords((prev) => {
+          const merged = { ...newRecords };
+          // If local has records that are missing or newer than cloud, preserve them and re-sync
+          Object.keys(prev).forEach((dateKey) => {
+            const localRec = prev[dateKey];
+            const cloudRec = newRecords[dateKey];
+            if (localRec && localRec.status !== 'unmarked') {
+              if (!cloudRec) {
+                merged[dateKey] = localRec;
+                if (familyInfo) {
+                  syncRecordToCloud(familyInfo.id, localRec, dateKey);
+                }
+              } else if (
+                localRec.updatedAt &&
+                cloudRec.updatedAt &&
+                localRec.updatedAt > cloudRec.updatedAt
+              ) {
+                merged[dateKey] = localRec;
+                if (familyInfo) {
+                  syncRecordToCloud(familyInfo.id, localRec, dateKey);
+                }
+              }
+            }
+          });
+          saveRecords(merged);
+          return merged;
+        });
         isSyncingFromCloudRef.current = false;
       },
       onPaymentsChange: (newPayments) => {
         isSyncingFromCloudRef.current = true;
-        setPayments(newPayments);
-        savePayments(newPayments);
+        setPayments((prev) => {
+          const merged = { ...prev, ...newPayments };
+          savePayments(merged);
+          return merged;
+        });
         isSyncingFromCloudRef.current = false;
       },
       onExtrasChange: (newExtras) => {
