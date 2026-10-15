@@ -9,8 +9,12 @@ import {
   RefreshCw,
   Trash2,
   Check,
+  Cloud,
+  ShieldCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { AppSettings, LunchRecord, MonthlyPaymentRecord, ExtraPayment } from '../types/lunch';
+import { FamilyInfo } from '../services/familySync';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -28,6 +32,8 @@ interface SettingsModalProps {
   }) => void;
   onResetDemoData: () => void;
   onClearAllData: () => void;
+  familyInfo?: FamilyInfo | null;
+  onOpenFamilyModal?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -41,6 +47,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onImportAll,
   onResetDemoData,
   onClearAllData,
+  familyInfo,
+  onOpenFamilyModal,
 }) => {
   if (!isOpen) return null;
 
@@ -260,62 +268,115 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Section 3: Data Management & Backup */}
-          <div className="pt-4 border-t border-stone-200">
-            <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
-              Záloha a správa dat
-            </h4>
-            <p className="text-xs text-stone-500 mb-3">
-              Všechna data se ukládají bezpečně ve vašem prohlížeči. Pro jistotu si můžete data stáhnout nebo nahrát na jiný počítač či telefon.
-            </p>
+          <div className="pt-4 border-t border-stone-200 space-y-4">
+            <div>
+              <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">
+                Záloha a ochrana dat
+              </h4>
+              <p className="text-xs text-stone-500">
+                Při smazání aplikace z plochy mobilu může systém vymazat lokální paměť. Zde si můžete data pojistit:
+              </p>
+            </div>
 
-            <div className="flex flex-wrap gap-2 text-xs">
-              <button
-                type="button"
-                onClick={handleExportJson}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-semibold"
-              >
-                <Download className="w-3.5 h-3.5 text-stone-500" />
-                <span>Stáhnout zálohu (JSON)</span>
-              </button>
+            {/* Cloud Backup Highlight Card */}
+            <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              familyInfo
+                ? 'bg-emerald-50/80 border-emerald-200'
+                : 'bg-amber-50/80 border-amber-300'
+            }`}>
+              <div className="flex items-start gap-2.5">
+                {familyInfo ? (
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <Cloud className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                    <span>{familyInfo ? 'Cloudová záloha je AKTIVNÍ' : 'Cloudová záloha (doporučeno)'}</span>
+                    {familyInfo && <span className="font-mono bg-emerald-200/60 px-1.5 py-0.2 rounded text-[11px] text-emerald-900">{familyInfo.code}</span>}
+                  </div>
+                  <p className="text-[11px] text-stone-600 mt-0.5">
+                    {familyInfo
+                      ? 'Vaše data jsou v bezpečí na serveru. I při smazání aplikace stačí zadat kód a vše se obnoví.'
+                      : 'Chrání před smazáním aplikace a umožňuje snadné obnovení nebo sdílení s druhým rodičem.'}
+                  </p>
+                </div>
+              </div>
 
-              <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-semibold cursor-pointer">
-                <Upload className="w-3.5 h-3.5 text-stone-500" />
-                <span>Obnovit ze zálohy</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportJson}
-                  className="hidden"
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Chcete obnovit ukázková data pro září a říjen?')) {
-                    onResetDemoData();
+              {onOpenFamilyModal && (
+                <button
+                  type="button"
+                  onClick={() => {
                     onClose();
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50/60 hover:bg-amber-100 text-amber-900 font-semibold"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
-                <span>Nahrát vzorová data</span>
-              </button>
+                    onOpenFamilyModal();
+                  }}
+                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-colors ${
+                    familyInfo
+                      ? 'bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 shadow-2xs'
+                      : 'bg-amber-600 text-white hover:bg-amber-700 shadow-2xs'
+                  }`}
+                >
+                  <span>{familyInfo ? 'Zobrazit kód zálohy' : 'Aktivovat zálohu v cloudu'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Opravdu chcete vymazat všechny záznamy a začít s čistým stolem?')) {
-                    onClearAllData();
-                    onClose();
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 font-semibold ml-auto"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Vymazat vše</span>
-              </button>
+            {/* Local File Backup (JSON) */}
+            <div>
+              <div className="text-xs font-semibold text-stone-700 mb-2">
+                Ruční záloha do souboru (JSON):
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={handleExportJson}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-semibold"
+                  title="Stáhne soubor se všemi obědy a platbami do vašeho zařízení"
+                >
+                  <Download className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Stáhnout zálohu (JSON)</span>
+                </button>
+
+                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 font-semibold cursor-pointer" title="Nahraje data z dříve staženého souboru JSON">
+                  <Upload className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Obnovit ze souboru JSON</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportJson}
+                    className="hidden"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Chcete obnovit ukázková data pro září a říjen?')) {
+                      onResetDemoData();
+                      onClose();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50/60 hover:bg-amber-100 text-amber-900 font-semibold"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Nahrát vzorová data</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Opravdu chcete vymazat všechny záznamy a začít s čistým stolem?')) {
+                      onClearAllData();
+                      onClose();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 font-semibold ml-auto"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Vymazat vše</span>
+                </button>
+              </div>
             </div>
           </div>
 

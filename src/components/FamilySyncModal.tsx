@@ -13,6 +13,9 @@ import {
   RefreshCw,
   LogOut,
   ArrowRight,
+  Cloud,
+  Save,
+  CheckCircle2,
 } from 'lucide-react';
 import { FamilyInfo, setStoredUserRole } from '../services/familySync';
 import { AppSettings } from '../types/lunch';
@@ -48,6 +51,7 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -61,10 +65,12 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
   const handleCreate = async () => {
     setLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
     try {
       await onCreateFamily(familyNameInput);
+      setSuccessMsg('Cloudová záloha byla úspěšně vytvořena!');
     } catch (e: any) {
-      setErrorMsg('Nepodařilo se vytvořit rodinnou skupinu. Zkuste to znovu.');
+      setErrorMsg('Nepodařilo se vytvořit cloudovou zálohu. Zkontrolujte připojení k internetu a zkuste to znovu.');
     } finally {
       setLoading(false);
     }
@@ -75,17 +81,36 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
     if (!joinCodeInput.trim()) return;
     setLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
     try {
       const ok = await onJoinFamily(joinCodeInput.trim());
       if (!ok) {
-        setErrorMsg('Kód rodiny nebyl nalezen. Zkontrolujte prosím zadání.');
+        setErrorMsg('Kód rodiny / zálohy nebyl nalezen. Zkontrolujte prosím správnost kódu.');
       } else {
+        setSuccessMsg('Záloha byla úspěšně obnovena! Vaše data jsou načtena.');
         setJoinCodeInput('');
       }
     } catch (e: any) {
-      setErrorMsg('Chyba při připojování k rodině.');
+      setErrorMsg('Chyba při obnovování dat ze zálohy.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleShareNative = async () => {
+    if (!familyInfo) return;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Obědník - Kód zálohy: ${familyInfo.code}`,
+          text: `Můj kód pro Obědník (${settings.child.name}): ${familyInfo.code}\nOdkaz pro obnovení dat / připojení telefonu: ${inviteLink}`,
+          url: inviteLink,
+        });
+      } catch (err) {
+        // Ignored or canceled by user
+      }
+    } else {
+      handleCopyLink();
     }
   };
 
@@ -114,15 +139,15 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-stone-200 bg-stone-50 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
-              <Users className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+              <Cloud className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-bold text-stone-900 text-base">
-                Rodinné sdílení v reálném čase
+                Cloudová záloha & Sdílení
               </h3>
               <p className="text-xs text-stone-500">
-                Synchronizace obědů mezi telefony rodičů
+                Ochrana dat při smazání aplikace a synchronizace v rodině
               </p>
             </div>
           </div>
@@ -144,6 +169,13 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
             </div>
           )}
 
+          {successMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
           {familyInfo ? (
             /* ACTIVE FAMILY SHARING STATE */
             <div className="space-y-5">
@@ -151,12 +183,15 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-                    <span>Rodinná synchronizace je aktivní</span>
+                    <span>Cloudová záloha je aktivní</span>
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
-                  <p className="text-xs text-emerald-800 mt-0.5">
-                    Skupina: <strong>{familyInfo.name}</strong>. Každá změna na vašem telefonu se
-                    okamžitě projeví i u manželky a naopak.
+                  <p className="text-xs text-emerald-800 mt-1">
+                    Skupina: <strong>{familyInfo.name}</strong>. Veškeré záznamy, nastavení a platby
+                    jsou bezpečně uloženy v cloudu na serveru.
+                  </p>
+                  <p className="text-[11px] text-emerald-700 mt-1 font-medium">
+                    🛡️ Ani smazání aplikace z mobilu vaše data nesmaže. Stačí si zapamatovat tento kód!
                   </p>
                 </div>
               </div>
@@ -164,13 +199,13 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
               {/* Family Code Box */}
               <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center">
                 <span className="text-xs uppercase font-bold text-stone-500 tracking-wider">
-                  Kód pro připojení druhého telefonu
+                  Váš unikátní kód zálohy a synchronizace
                 </span>
                 <div className="text-2xl sm:text-3xl font-black font-mono tracking-wider text-stone-900 my-1">
                   {familyInfo.code}
                 </div>
-                <p className="text-[11px] text-stone-500 mb-3">
-                  Tento kód stačí zadat na druhém telefonu v této obrazovce.
+                <p className="text-[11px] text-stone-600 mb-3 max-w-sm mx-auto">
+                  Tento kód slouží k <strong>obnovení dat při smazání aplikace</strong> i k <strong>propojení s mobilem manželky</strong>.
                 </p>
 
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -183,11 +218,19 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                   </button>
 
                   <button
+                    onClick={handleShareNative}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-xs font-semibold hover:bg-emerald-800 shadow-2xs"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Uložit kód / Poslat (WhatsApp, e-mail)</span>
+                  </button>
+
+                  <button
                     onClick={handleCopyLink}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs font-semibold hover:bg-stone-800 shadow-2xs"
                   >
                     {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link className="w-3.5 h-3.5" />}
-                    <span>{copiedLink ? 'Odkaz zkopírován!' : 'Kopírovat odkaz pro manželku'}</span>
+                    <span>{copiedLink ? 'Odkaz zkopírován!' : 'Kopírovat odkaz'}</span>
                   </button>
 
                   <button
@@ -195,7 +238,7 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-xs font-semibold text-stone-700 hover:bg-stone-100 shadow-2xs"
                   >
                     <QrCode className="w-3.5 h-3.5 text-stone-600" />
-                    <span>{showQr ? 'Skrýt QR kód' : 'Zobrazit QR kód'}</span>
+                    <span>{showQr ? 'Skrýt QR kód' : 'QR kód'}</span>
                   </button>
                 </div>
 
@@ -206,11 +249,11 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                       <QrCode className="w-24 h-24 text-stone-800 mb-2" />
                       <div className="text-[11px] font-mono font-bold text-stone-900">{familyInfo.code}</div>
                       <div className="text-[10px] text-stone-500 text-center">
-                        Otevřete fotoaparát na mobilu manželky
+                        Otevřete fotoaparát na druhém mobilu
                       </div>
                     </div>
                     <div className="text-[11px] text-stone-500 mt-2">
-                      Nebo pošlete přímý odkaz: <br />
+                      Přímý odkaz: <br />
                       <span className="font-mono text-stone-700 break-all text-[10px]">
                         {inviteLink}
                       </span>
@@ -248,7 +291,7 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm('Opravdu se chcete odpojit od rodinné synchronizace? Vaše data zůstanou v cloudu i v tomto telefonu.')) {
+                    if (confirm('Opravdu se chcete odpojit od cloudové zálohy? Vaše data zůstanou v cloudu na serveru i lokálně v tomto telefonu.')) {
                       onLeaveFamily();
                     }
                   }}
@@ -262,22 +305,22 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
           ) : (
             /* NO FAMILY YET - OPTIONS TO CREATE OR JOIN */
             <div className="space-y-6">
-              {/* Option 1: Create Family */}
-              <div className="p-4 sm:p-5 bg-amber-50/60 border border-amber-200 rounded-2xl">
+              {/* Option 1: Create Family / Backup */}
+              <div className="p-4 sm:p-5 bg-emerald-50/60 border border-emerald-200 rounded-2xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <Cloud className="w-4 h-4 text-emerald-700" />
                   <h4 className="font-bold text-stone-900 text-sm">
-                    1. Jsem první z rodičů – chci vytvořit rodinu
+                    1. Aktivovat cloudovou zálohu (uložit do cloudu)
                   </h4>
                 </div>
                 <p className="text-xs text-stone-600 mb-4">
-                  Nahrajete dosud zadaná data do cloudu a získáte kód a odkaz pro manželku.
+                  Nahrajete dosavadní data (syna, zadané obědy, platby) do zabezpečeného cloudu. Získáte kód, díky kterému se data neztratí ani při smazání aplikace z telefonu.
                 </p>
 
                 <div className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-stone-700 mb-1">
-                      Název rodinné skupiny
+                      Název skupiny / zálohy
                     </label>
                     <input
                       type="text"
@@ -292,36 +335,36 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                     type="button"
                     onClick={handleCreate}
                     disabled={loading}
-                    className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
                   >
                     {loading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        <Users className="w-4 h-4" />
-                        <span>Vytvořit rodinné sdílení</span>
+                        <Save className="w-4 h-4" />
+                        <span>Vytvořit zálohu v cloudu a získat kód</span>
                       </>
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Option 2: Join Existing Family */}
+              {/* Option 2: Join / Restore Existing Backup */}
               <div className="p-4 sm:p-5 bg-white border border-stone-200 rounded-2xl">
                 <div className="flex items-center gap-2 mb-2">
                   <Smartphone className="w-4 h-4 text-stone-700" />
                   <h4 className="font-bold text-stone-900 text-sm">
-                    2. Manžel/manželka už rodinu vytvořil(a) – chci se připojit
+                    2. Obnovit data ze zálohy (nebo se připojit jako druhý rodič)
                   </h4>
                 </div>
                 <p className="text-xs text-stone-600 mb-4">
-                  Zadejte 8místný kód rodiny (např. <code>OBED-4821</code>), který vám druhý rodič ukázal.
+                  Máte už vygenerovaný kód (např. <code>OBED-4821</code>) z dřívějška nebo od manželky? Zadejte ho zde a všechna data se okamžitě stáhnou zpět.
                 </p>
 
                 <form onSubmit={handleJoin} className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-stone-700 mb-1">
-                      Kód rodiny
+                      Kód pro obnovení / připojení
                     </label>
                     <input
                       type="text"
@@ -341,7 +384,7 @@ export const FamilySyncModal: React.FC<FamilySyncModalProps> = ({
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        <span>Připojit se k rodině</span>
+                        <span>Obnovit data ze zálohy</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}

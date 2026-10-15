@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Users,
+  Cloud,
 } from 'lucide-react';
 import { AppSettings, OverallSettlement } from '../types/lunch';
 import { FamilyInfo } from '../services/familySync';
@@ -86,33 +87,35 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Balance Status & Actions in Header */}
           <div className="flex items-center gap-1.5 sm:gap-3">
-            {/* Family sharing button */}
+            {/* Cloud & Family backup button */}
             <button
               onClick={onOpenFamilyModal}
-              className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 rounded-xl border text-[11px] sm:text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-xl border text-[11px] sm:text-xs font-semibold transition-all ${
                 familyInfo
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
-                  : 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100 shadow-2xs'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950 hover:bg-emerald-100 shadow-2xs'
+                  : 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100 shadow-2xs'
               }`}
               title={
                 familyInfo
-                  ? `Sdíleno v rodině (${familyInfo.code}) - klikněte pro kód / QR kód`
-                  : 'Zapnout rodinné sdílení pro manželku'
+                  ? `Cloudová záloha aktivní (${familyInfo.code}) - klikněte pro kód / správu`
+                  : 'Aktivovat cloudovou zálohu dat'
               }
             >
-              <Users
+              <Cloud
                 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
                   familyInfo ? 'text-emerald-600' : 'text-amber-600'
                 }`}
               />
               <span className="hidden md:inline">
-                {familyInfo ? `Rodina: ${familyInfo.code}` : 'Rodinné sdílení'}
+                {familyInfo ? `Záloha: ${familyInfo.code}` : 'Cloudová záloha'}
               </span>
               <span className="md:hidden">
-                {familyInfo ? familyInfo.code : 'Sdílet'}
+                {familyInfo ? familyInfo.code : 'Záloha'}
               </span>
-              {familyInfo && (
+              {familyInfo ? (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 ml-0.5" />
               )}
             </button>
 
